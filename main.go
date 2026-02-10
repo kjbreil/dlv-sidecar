@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"net/rpc/jsonrpc"
-	"os"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -120,6 +119,5 @@ func main() {
 	// Start the server with stdio transport
 	if err := server.ServeStdio(s); err != nil {
 		log.Fatalf("Server error: %v", err)
-		os.Exit(1)
 	}
 }
