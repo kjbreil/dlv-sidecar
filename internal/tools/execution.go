@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kjbreil/dlc-sidecar/internal/debugger"
+	"github.com/kjbreil/dlv-sidecar/internal/debugger"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

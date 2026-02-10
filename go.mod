@@ -1,4 +1,4 @@
-module github.com/kjbreil/dlc-sidecar
+module github.com/kjbreil/dlv-sidecar
 
 go 1.24.12
 

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/kjbreil/dlc-sidecar/internal/debugger"
-	"github.com/kjbreil/dlc-sidecar/internal/tools"
+	"github.com/kjbreil/dlv-sidecar/internal/debugger"
+	"github.com/kjbreil/dlv-sidecar/internal/tools"
 	"github.com/mark3labs/mcp-go/server"
 )
 
