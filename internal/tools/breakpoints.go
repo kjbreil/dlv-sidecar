@@ -10,7 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func registerBreakpoints(s *server.MCPServer, addr string) {
+func registerBreakpoints(s *server.MCPServer, pool *debugger.Pool) {
 	// set_breakpoint
 	s.AddTool(mcp.NewTool("set_breakpoint",
 		mcp.WithDescription("Set a breakpoint in the Delve debugger at the specified file and line"),
@@ -22,7 +22,7 @@ func registerBreakpoints(s *server.MCPServer, addr string) {
 			mcp.Required(),
 			mcp.Description("Line number where the breakpoint should be set"),
 		),
-	), makeSetBreakpoint(addr))
+	), makeSetBreakpoint(pool))
 
 	// clear_breakpoint
 	s.AddTool(mcp.NewTool("clear_breakpoint",
@@ -31,15 +31,15 @@ func registerBreakpoints(s *server.MCPServer, addr string) {
 			mcp.Required(),
 			mcp.Description("ID of the breakpoint to clear"),
 		),
-	), makeClearBreakpoint(addr))
+	), makeClearBreakpoint(pool))
 
 	// list_breakpoints
 	s.AddTool(mcp.NewTool("list_breakpoints",
 		mcp.WithDescription("List all breakpoints currently set in the debugger"),
-	), makeListBreakpoints(addr))
+	), makeListBreakpoints(pool))
 }
 
-func makeSetBreakpoint(addr string) server.ToolHandlerFunc {
+func makeSetBreakpoint(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		file, err := request.RequireString("file")
 		if err != nil {
@@ -50,12 +50,6 @@ func makeSetBreakpoint(addr string) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(fmt.Sprintf("line parameter error: %v", err)), nil
 		}
 
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		req := debugger.CreateBreakpointIn{
 			Breakpoint: debugger.Breakpoint{
 				File: file,
@@ -63,7 +57,7 @@ func makeSetBreakpoint(addr string) server.ToolHandlerFunc {
 			},
 		}
 		var resp debugger.CreateBreakpointOut
-		if err := c.Call("CreateBreakpoint", req, &resp); err != nil {
+		if err := pool.Call("CreateBreakpoint", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -75,22 +69,16 @@ func makeSetBreakpoint(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeClearBreakpoint(addr string) server.ToolHandlerFunc {
+func makeClearBreakpoint(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := request.RequireInt("id")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("id parameter error: %v", err)), nil
 		}
 
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		req := debugger.ClearBreakpointIn{Id: id}
 		var resp debugger.ClearBreakpointOut
-		if err := c.Call("ClearBreakpoint", req, &resp); err != nil {
+		if err := pool.Call("ClearBreakpoint", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -101,17 +89,11 @@ func makeClearBreakpoint(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeListBreakpoints(addr string) server.ToolHandlerFunc {
+func makeListBreakpoints(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		req := debugger.ListBreakpointsIn{All: true}
 		var resp debugger.ListBreakpointsOut
-		if err := c.Call("ListBreakpoints", req, &resp); err != nil {
+		if err := pool.Call("ListBreakpoints", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 

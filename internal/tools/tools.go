@@ -6,14 +6,9 @@ import (
 )
 
 // Register adds all debugging tools to the MCP server.
-func Register(s *server.MCPServer, addr string) {
-	registerBreakpoints(s, addr)
-	registerExecution(s, addr)
-	registerVariables(s, addr)
-	registerState(s, addr)
-}
-
-// dial creates a new connection to the Delve debugger.
-func dial(addr string) (*debugger.Client, error) {
-	return debugger.Dial(addr)
+func Register(s *server.MCPServer, pool *debugger.Pool) {
+	registerBreakpoints(s, pool)
+	registerExecution(s, pool)
+	registerVariables(s, pool)
+	registerState(s, pool)
 }

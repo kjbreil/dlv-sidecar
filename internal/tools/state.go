@@ -9,11 +9,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func registerState(s *server.MCPServer, addr string) {
+func registerState(s *server.MCPServer, pool *debugger.Pool) {
 	// get_state
 	s.AddTool(mcp.NewTool("get_state",
 		mcp.WithDescription("Get the current debugger state including position, goroutine, and thread info"),
-	), makeGetState(addr))
+	), makeGetState(pool))
 
 	// stacktrace
 	s.AddTool(mcp.NewTool("stacktrace",
@@ -27,7 +27,7 @@ func registerState(s *server.MCPServer, addr string) {
 		mcp.WithBoolean("full",
 			mcp.Description("Include local variables and arguments in each frame (default: false)"),
 		),
-	), makeStacktrace(addr))
+	), makeStacktrace(pool))
 
 	// list_goroutines
 	s.AddTool(mcp.NewTool("list_goroutines",
@@ -35,20 +35,14 @@ func registerState(s *server.MCPServer, addr string) {
 		mcp.WithNumber("count",
 			mcp.Description("Maximum number of goroutines to return (default: 100)"),
 		),
-	), makeListGoroutines(addr))
+	), makeListGoroutines(pool))
 }
 
-func makeGetState(addr string) server.ToolHandlerFunc {
+func makeGetState(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		req := debugger.StateIn{NonBlocking: true}
 		var resp debugger.StateOut
-		if err := c.Call("State", req, &resp); err != nil {
+		if err := pool.Call("State", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -58,14 +52,8 @@ func makeGetState(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeStacktrace(addr string) server.ToolHandlerFunc {
+func makeStacktrace(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		goroutineID := int64(-1)
 		depth := 50
 		full := false
@@ -89,7 +77,7 @@ func makeStacktrace(addr string) server.ToolHandlerFunc {
 			req.Cfg = &cfg
 		}
 		var resp debugger.StacktraceOut
-		if err := c.Call("Stacktrace", req, &resp); err != nil {
+		if err := pool.Call("Stacktrace", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -99,14 +87,8 @@ func makeStacktrace(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeListGoroutines(addr string) server.ToolHandlerFunc {
+func makeListGoroutines(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		count := 100
 		if v, err := request.RequireInt("count"); err == nil {
 			count = v
@@ -117,7 +99,7 @@ func makeListGoroutines(addr string) server.ToolHandlerFunc {
 			Count: count,
 		}
 		var resp debugger.ListGoroutinesOut
-		if err := c.Call("ListGoroutines", req, &resp); err != nil {
+		if err := pool.Call("ListGoroutines", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 

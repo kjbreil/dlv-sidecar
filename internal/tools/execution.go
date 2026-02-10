@@ -9,49 +9,43 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func registerExecution(s *server.MCPServer, addr string) {
+func registerExecution(s *server.MCPServer, pool *debugger.Pool) {
 	// continue
 	s.AddTool(mcp.NewTool("continue",
 		mcp.WithDescription("Continue execution until the next breakpoint or program exit"),
-	), makeCommand(addr, debugger.CmdContinue))
+	), makeCommand(pool, debugger.CmdContinue))
 
 	// next (step over)
 	s.AddTool(mcp.NewTool("next",
 		mcp.WithDescription("Step to the next source line, stepping over function calls"),
-	), makeCommand(addr, debugger.CmdNext))
+	), makeCommand(pool, debugger.CmdNext))
 
 	// step (step into)
 	s.AddTool(mcp.NewTool("step",
 		mcp.WithDescription("Step to the next source line, stepping into function calls"),
-	), makeCommand(addr, debugger.CmdStep))
+	), makeCommand(pool, debugger.CmdStep))
 
 	// step_out
 	s.AddTool(mcp.NewTool("step_out",
 		mcp.WithDescription("Step out of the current function, continuing to the return address"),
-	), makeCommand(addr, debugger.CmdStepOut))
+	), makeCommand(pool, debugger.CmdStepOut))
 
 	// step_instruction
 	s.AddTool(mcp.NewTool("step_instruction",
 		mcp.WithDescription("Step exactly one CPU instruction"),
-	), makeCommand(addr, debugger.CmdStepInstruction))
+	), makeCommand(pool, debugger.CmdStepInstruction))
 
 	// halt
 	s.AddTool(mcp.NewTool("halt",
 		mcp.WithDescription("Halt the running program"),
-	), makeCommand(addr, debugger.CmdHalt))
+	), makeCommand(pool, debugger.CmdHalt))
 }
 
-func makeCommand(addr string, cmd string) server.ToolHandlerFunc {
+func makeCommand(pool *debugger.Pool, cmd string) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		command := debugger.DebuggerCommand{Name: cmd}
 		var resp debugger.CommandOut
-		if err := c.Call("Command", command, &resp); err != nil {
+		if err := pool.Call("Command", command, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
