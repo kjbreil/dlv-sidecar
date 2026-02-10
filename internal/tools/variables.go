@@ -9,7 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func registerVariables(s *server.MCPServer, addr string) {
+func registerVariables(s *server.MCPServer, pool *debugger.Pool) {
 	// list_local_vars
 	s.AddTool(mcp.NewTool("list_local_vars",
 		mcp.WithDescription("List all local variables in the current scope"),
@@ -19,7 +19,7 @@ func registerVariables(s *server.MCPServer, addr string) {
 		mcp.WithNumber("frame",
 			mcp.Description("Stack frame index (default: 0 for current frame)"),
 		),
-	), makeListLocalVars(addr))
+	), makeListLocalVars(pool))
 
 	// list_function_args
 	s.AddTool(mcp.NewTool("list_function_args",
@@ -30,7 +30,7 @@ func registerVariables(s *server.MCPServer, addr string) {
 		mcp.WithNumber("frame",
 			mcp.Description("Stack frame index (default: 0 for current frame)"),
 		),
-	), makeListFunctionArgs(addr))
+	), makeListFunctionArgs(pool))
 
 	// eval
 	s.AddTool(mcp.NewTool("eval",
@@ -45,24 +45,18 @@ func registerVariables(s *server.MCPServer, addr string) {
 		mcp.WithNumber("frame",
 			mcp.Description("Stack frame index (default: 0 for current frame)"),
 		),
-	), makeEval(addr))
+	), makeEval(pool))
 }
 
-func makeListLocalVars(addr string) server.ToolHandlerFunc {
+func makeListLocalVars(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		scope := evalScope(request)
 		req := debugger.ListLocalVarsIn{
 			Scope: scope,
 			Cfg:   debugger.DefaultLoadConfig(),
 		}
 		var resp debugger.ListLocalVarsOut
-		if err := c.Call("ListLocalVars", req, &resp); err != nil {
+		if err := pool.Call("ListLocalVars", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -72,21 +66,15 @@ func makeListLocalVars(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeListFunctionArgs(addr string) server.ToolHandlerFunc {
+func makeListFunctionArgs(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
-
 		scope := evalScope(request)
 		req := debugger.ListFunctionArgsIn{
 			Scope: scope,
 			Cfg:   debugger.DefaultLoadConfig(),
 		}
 		var resp debugger.ListFunctionArgsOut
-		if err := c.Call("ListFunctionArgs", req, &resp); err != nil {
+		if err := pool.Call("ListFunctionArgs", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
@@ -96,18 +84,12 @@ func makeListFunctionArgs(addr string) server.ToolHandlerFunc {
 	}
 }
 
-func makeEval(addr string) server.ToolHandlerFunc {
+func makeEval(pool *debugger.Pool) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		expr, err := request.RequireString("expr")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("expr parameter error: %v", err)), nil
 		}
-
-		c, err := dial(addr)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to connect to Delve at %s: %v", addr, err)), nil
-		}
-		defer c.Close()
 
 		scope := evalScope(request)
 		cfg := debugger.DefaultLoadConfig()
@@ -117,7 +99,7 @@ func makeEval(addr string) server.ToolHandlerFunc {
 			Cfg:   &cfg,
 		}
 		var resp debugger.EvalOut
-		if err := c.Call("Eval", req, &resp); err != nil {
+		if err := pool.Call("Eval", req, &resp); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RPC call failed: %v", err)), nil
 		}
 
